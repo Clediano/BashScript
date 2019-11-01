@@ -1,11 +1,18 @@
 #!/bin/bash
+function ValidaNomeUsuario {
 
-function InicialNumerica {
-    numerica=`$1 | sed "^[0-9]"`
-    echo $numerica
+    nome_REGEX="^[a-zA-Z]{1}"
+    name_to_check=$1
+
+    if [[ "${name_to_check}" =~ ${nome_REGEX} ]]; then
+        echo "0"
+    else
+        echo "1"
+    fi
 }
 
-read -p "informe o usuário: " usuario
+read -p "Digite o nome do usuario:" usuarionome
 
-valor=`InicialNumerica "$usuario"`
-echo $valor
+isValid=`ValidaNomeUsuario "$usuarionome"`
+
+ #echo $isValid

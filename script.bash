@@ -13,6 +13,18 @@ function BuscarUsuario {
     echo $userFound
 }
 
+function ValidaNomeUsuario {
+
+    nome_REGEX="^[a-zA-Z]{1}"
+    name_to_check=$1
+
+    if [[ "${name_to_check}" =~ ${nome_REGEX} ]]; then
+        echo "0"
+    else
+        echo "1"
+    fi
+}
+
 function CriarUsuario {
     while true;
     do
@@ -22,15 +34,23 @@ function CriarUsuario {
             then
                 break;
             else
+                isValid=`ValidaNomeUsuario "$usuarionome"`
                 userFound=`BuscarUsuario "$usuarionome"`
-
-                if [ "$userFound" = "$usuarionome" ];
+                if [ "$isValid" = "0" ];
                     then
-                        echo "> Nome de usuário já está em uso, escolha outro <"  
+                        if [ "$userFound" = "$usuarionome" ];
+                            then
+                                echo "> Nome de usuário já está em uso, escolha outro <"  
+                            else
+                                sudo useradd $usuarionome
+                                echo "Vamos adicionar uma senha!"
+                                AlterarSenha $usuarionome
+                                echo "Usuário criado!"
+                                Pause
+                                break;
+                        fi
                     else
-                        sudo useradd $usuarionome
-                        echo "Usuario $usuarionome criado"
-                        break;
+                        echo "> Nome de usuário inválido <" 
                 fi
         fi
     done
@@ -38,7 +58,14 @@ function CriarUsuario {
 }
 
 function AlterarSenha {
-    read -p "Digite o nome do usuario:" usuarionome
+    usuarionome=""
+    if [ $# -eq 0 ] ;
+        then
+            read -p "Digite o nome do usuario: " usuarionome
+        else
+            usuarionome=$1
+            
+    fi
     sudo passwd $usuarionome
     Pause
 }
@@ -46,62 +73,122 @@ function AlterarSenha {
 function RemoverUsuario {
     read -p "Digite o nome do usuario:" usuarionome
 
-    read -p "Remover diretórios do usuário $usuarionome (S/N)? " -n 1 -r
-    echo
-    case "$REPLY" in 
-        s|S ) sudo userdel -r $usuarionome ;;
-        n|N ) sudo userdel $usuarionome ;;
-        * ) echo "Entrada inválida. Nenhum usuário removido." ;;
-    esac
+    userFound=`BuscarUsuario $usuarionome`
+
+    if [ "$userFound" = "$usuarionome" ];
+        then
+            read -p "Tem certeza que deseja remover o usuário $usuarionome (S/N)? " 
+            echo
+            case "$REPLY" in 
+                s|S )
+                    if [ ! -d "/home/$usuarionome" ];
+                        then
+                            sudo userdel $usuarionome
+                        else
+                            sudo userdel -r $usuarionome
+                    fi
+                ;;
+                * ) echo "Nenhum usuário removido." ;;
+            esac
+        else
+            echo "Usuário inexistente!"
+    fi
     Pause
 }
 
 function DetalharUsuario {
     read -p "Digite o nome do usuario:" usuarionome
-    id $usuarionome
-    Pause
+    userFound=`BuscarUsuario "$usuarionome"`
+    if [ "$userFound" = "$usuarionome" ];
+        then
+            sudo dpkg -l | grep finger
+            if [ $? = "1" ] ;
+                then
+                    echo "Precisamos instalar o pacote 'finger'! "
+                    Pause
+                    sudo apt-get install finger
+                else
+                    clear
+                    finger $usuarionome
+                    Pause
+            fi
+        else
+            echo "Usuário inexistente"
+            Pause
+    fi
+    
 }
 
 function AlterarUsuario {
     clear
     read -p "Digite o nome do usuario:" usuarionome
-    id $usuarionome
 
-    echo ------------------------------------
-    echo "1 - Alterar diretorio do usuário"
-    echo "2 - Definir data de expiracao para o usuario"
-    echo "3 - Alterar nome de login do usuario"
-    echo "4 - Altera o GID do grupo principal do usuário"
-    echo "5 - Sair"
-    echo -----------------------------------
-    read resp
-    case $resp in
-    1)
-        read -p "Digite o nome do novo diretorio:" diretorio
-        sudo usermod -d /$diretorio -m $usuarionome
-        echo "Diretorio alterado!"
-        Pause
-    ;;
-    2)
-        read -p "Digite a data de expiração(aaaa-mm-dd):" data
-        sudo usermod -e $data $usuarionome
-        echo "Data de expiração adicionada!"
-        Pause
-    ;;
-    3)
-        read -p "Digite o novo nome de login:" nome
-        sudo usermod -l $nome $usuarionome
-        echo "Nome de login alterado!"
-        Pause
-    ;;
-    4)
-        read -p "Digite o novo GID:" gid
-        sudo usermod -g $gid $usuarionome
-        echo "GID alterado!"
-        Pause
-    ;;    
-    *) echo "Opção Inválida!";;
-    esac
+    userFound=`BuscarUsuario "$usuarionome"`
+        if [ "$userFound" = "$usuarionome" ];
+            then
+                selecionado=0
+                while [ $selecionado -ne 5 ]
+                do
+                    clear
+                    echo ------------------------------------
+                    echo "1 - Alterar diretorio do usuário"
+                    echo "2 - Definir data de expiracao para o usuario"
+                    echo "3 - Alterar nome de login do usuario"
+                    echo "4 - Alterar informações do usuario"
+                    echo "5 - Sair"
+                    echo -----------------------------------
+                    read resp
+                    case $resp in
+                    1)
+                        read -p "Digite o nome do novo diretorio:" diretorio
+                        sudo usermod -d /$diretorio -m $usuarionome
+                        if [ $? = "0" ] ;
+                            then
+                                echo "Diretorio alterado!"                        
+                        fi
+                        
+                        Pause
+                    ;;
+                    2)
+                        read -p "Digite a data de expiração(aaaa-mm-dd):" data
+                        sudo usermod -e $data $usuarionome
+
+                        if [ $? = "0" ] ;
+                            then
+                                echo "Data de expiração adicionada!"                            
+                        fi
+                        Pause
+                    ;;
+                    3)
+                        read -p "Digite o novo nome de login:" nome
+                        sudo usermod -l $nome $usuarionome
+
+                        if [ $? = "0" ] ;
+                            then
+                                usuarionome=$nome
+                                echo "Nome de login alterado!"                            
+                        fi
+                        Pause
+                    ;;
+                    4)
+                        sudo chfn $usuarionome
+                        if [ $? = "0" ] ;
+                            then
+                                echo "Informações alteradas!"                            
+                        fi
+                        Pause
+                    ;;
+                    5) break ;;
+                    *)
+                        echo "Opção Inválida!"
+                        Pause
+                    ;;
+                    esac
+                done
+            else
+                echo "> Usuário inexistente <" 
+                Pause
+        fi
 }
 
 
